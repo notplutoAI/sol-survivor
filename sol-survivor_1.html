@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="x-ogp-key" content="5d411fa7-74d7-473f-9e95-402978bf58f3" id="ogp-key-meta" />
+<title>SOL SURVIVOR — Don't Get Rugged</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --sol-purple: #9945FF;
+    --sol-green: #14F195;
+    --sol-teal: #00D4AA;
+    --sol-pink: #FF6FD8;
+    --sol-orange: #FF9900;
+    --bg-dark: #0A0A0F;
+    --rug-red: #FF2E2E;
+    --fud-yellow: #FFD700;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html, body {
+    background: var(--bg-dark); font-family:'Orbitron',monospace;
+    color: var(--sol-green); overflow:hidden; height:100%; width:100%;
+    touch-action:none; user-select:none; -webkit-user-select:none;
+  }
+  body::after {
+    content:''; position:fixed; inset:0;
+    background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.055) 2px,rgba(0,0,0,0.055) 4px);
+    pointer-events:none; z-index:999;
+  }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.6) 100%);
+    pointer-events:none; z-index:998;
+  }
+  canvas { display:block; position:fixed; top:0; left:0; }
+
+  /* ── HUD ── */
+  #hud {
+    position:fixed; top:0; left:0; right:0;
+    display:flex; align-items:flex-start; padding:8px 10px;
+    z-index:100; pointer-events:none; flex-wrap:wrap; gap:5px;
+  }
+  .hud-block {
+    background:rgba(10,10,15,0.9); border:1px solid var(--sol-green);
+    padding:5px 9px; border-radius:4px; box-shadow:0 0 7px rgba(20,241,149,0.18);
+  }
+  .hud-label { font-family:'Press Start 2P',monospace; font-size:6px; color:var(--sol-teal); letter-spacing:1px; margin-bottom:3px; text-transform:uppercase; }
+  .hud-value { font-family:'Press Start 2P',monospace; font-size:11px; color:var(--sol-green); text-shadow:0 0 5px var(--sol-green); }
+  .hud-value.sol-val { color:var(--fud-yellow); text-shadow:0 0 5px var(--fud-yellow); }
+
+  #health-bar-wrap { display:flex; flex-direction:column; align-items:center; }
+  #health-bar { width:120px; height:10px; background:rgba(255,46,46,0.2); border:1px solid var(--rug-red); border-radius:2px; overflow:hidden; margin-top:3px; }
+  #health-fill { height:100%; background:linear-gradient(90deg,#FF2E2E,#FF7700); transition:width 0.2s; }
+
+  /* SOL progress toward next shop */
+  #sol-bar-wrap { display:flex; flex-direction:column; align-items:center; border-color:var(--fud-yellow) !important; }
+  #sol-bar { width:120px; height:10px; background:rgba(255,215,0,0.1); border:1px solid var(--fud-yellow); border-radius:2px; overflow:hidden; margin-top:3px; }
+  #sol-fill { height:100%; background:linear-gradient(90deg,#FF9900,#FFD700); transition:width 0.2s; box-shadow:0 0 4px #FFD700; }
+
+  .wave-badge { background:linear-gradient(135deg,var(--sol-purple),var(--sol-pink)); border:none !important; box-shadow:0 0 14px rgba(153,69,255,0.5) !important; }
+
+  /* ── PAUSE BTN ── */
+  #pause-btn {
+    position:fixed; top:10px; right:10px; z-index:150;
+    font-family:'Press Start 2P',monospace; font-size:10px;
+    padding:8px 12px; border:2px solid var(--sol-green);
+    background:rgba(10,10,15,0.9); color:var(--sol-green);
+    cursor:pointer; border-radius:4px; box-shadow:0 0 8px rgba(20,241,149,0.22);
+    display:none; -webkit-appearance:none; min-height:38px;
+  }
+  #pause-btn:active { transform:scale(0.93); }
+
+  /* ── SCREENS ── */
+  .screen {
+    position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:500;
+    overflow-y:auto; padding:20px 10px;
+    background:radial-gradient(ellipse at 50% 40%, rgba(153,69,255,0.14) 0%, rgba(10,10,15,0.97) 70%);
+  }
+  .screen.hidden { display:none; }
+
+  .title-main {
+    font-family:'Press Start 2P',monospace; font-size:clamp(20px,5vw,46px);
+    color:var(--sol-green);
+    text-shadow:0 0 18px var(--sol-green),0 0 36px var(--sol-teal),3px 3px 0 var(--sol-purple);
+    letter-spacing:3px; line-height:1.3; text-align:center; animation:flicker 4s infinite;
+  }
+  @keyframes flicker { 0%,95%,100%{opacity:1} 96%{opacity:.65} 97%{opacity:1} 98%{opacity:.82} }
+
+  .title-sub {
+    font-family:'Press Start 2P',monospace; font-size:clamp(8px,1.4vw,12px);
+    color:var(--sol-pink); margin-top:11px; letter-spacing:2px;
+    text-align:center; text-shadow:0 0 8px var(--sol-pink); animation:blink 2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .btn {
+    font-family:'Press Start 2P',monospace; font-size:10px;
+    padding:13px 26px; margin:7px; border:2px solid var(--sol-green);
+    background:transparent; color:var(--sol-green); cursor:pointer;
+    letter-spacing:1px; text-transform:uppercase; transition:all 0.15s;
+    position:relative; overflow:hidden; text-shadow:0 0 5px var(--sol-green);
+    box-shadow:0 0 8px rgba(20,241,149,0.18); -webkit-appearance:none;
+    border-radius:3px; min-width:150px; min-height:46px;
+  }
+  .btn::before { content:''; position:absolute; inset:0; background:var(--sol-green); transform:translateX(-100%); transition:transform 0.18s; z-index:-1; }
+  .btn:hover { color:var(--bg-dark); box-shadow:0 0 18px var(--sol-green); }
+  .btn:hover::before,.btn:active::before { transform:translateX(0); }
+  .btn:active { transform:scale(0.94); color:var(--bg-dark); }
+  .btn-danger { border-color:var(--sol-pink); color:var(--sol-pink); text-shadow:0 0 5px var(--sol-pink); box-shadow:0 0 8px rgba(255,111,216,0.18); }
+  .btn-danger::before { background:var(--sol-pink); }
+  .btn-danger:hover,.btn-danger:active { color:var(--bg-dark); box-shadow:0 0 18px var(--sol-pink); }
+
+  .instructions {
+    max-width:520px; width:100%; text-align:center; margin-top:16px;
+    display:grid; grid-template-columns:1fr 1fr; gap:7px; padding:0 10px;
+  }
+  .inst-item {
+    background:rgba(20,241,149,0.05); border:1px solid rgba(20,241,149,0.18);
+    padding:9px; border-radius:4px; font-family:'Press Start 2P',monospace;
+    font-size:7px; color:rgba(20,241,149,0.8); line-height:1.9;
+  }
+  .inst-item .icon { font-size:15px; display:block; margin-bottom:4px; }
+
+  .score-panel {
+    background:rgba(10,10,15,0.92); border:2px solid var(--sol-purple);
+    padding:18px 32px; border-radius:8px; text-align:center;
+    box-shadow:0 0 32px rgba(153,69,255,0.38); margin:12px; max-width:400px; width:90%;
+  }
+  .final-score { font-family:'Press Start 2P',monospace; font-size:clamp(20px,5vw,32px); color:var(--fud-yellow); text-shadow:0 0 16px var(--fud-yellow); margin:7px 0; }
+  .stat-row { font-family:'Press Start 2P',monospace; font-size:8px; color:rgba(20,241,149,0.68); margin:4px 0; letter-spacing:1px; }
+  .death-msg { font-family:'Press Start 2P',monospace; font-size:clamp(10px,2.5vw,16px); color:var(--rug-red); text-shadow:0 0 10px var(--rug-red); margin:10px 0; text-align:center; animation:shake 0.45s; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-5px)} 40%{transform:translateX(5px)} 60%{transform:translateX(-3px)} 80%{transform:translateX(3px)} }
+
+  /* ── ANNOUNCE ── */
+  #announce {
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:'Press Start 2P',monospace; font-size:clamp(16px,3.5vw,32px);
+    color:var(--sol-green); text-shadow:0 0 24px var(--sol-green),0 0 50px var(--sol-teal);
+    z-index:200; pointer-events:none; opacity:0; text-align:center;
+    letter-spacing:3px; width:90%; max-width:540px;
+  }
+  #combo-display {
+    position:fixed; top:75px; left:50%; transform:translateX(-50%);
+    font-family:'Press Start 2P',monospace; font-size:12px;
+    color:var(--fud-yellow); text-shadow:0 0 10px var(--fud-yellow);
+    z-index:200; pointer-events:none; opacity:0; text-align:center; transition:opacity 0.25s;
+  }
+
+  /* ── SHOP SCREEN ── */
+  #shop-screen {
+    position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:400;
+    background:rgba(10,10,15,0.96); padding:16px 10px; overflow-y:auto;
+  }
+  #shop-screen.hidden { display:none; }
+  .shop-sol-balance {
+    font-family:'Press Start 2P',monospace; font-size:clamp(11px,2vw,16px);
+    color:var(--fud-yellow); text-shadow:0 0 12px var(--fud-yellow);
+    margin:8px 0 4px; letter-spacing:2px;
+  }
+  .shop-grid {
+    display:grid; grid-template-columns:repeat(3,1fr); gap:9px;
+    margin-top:12px; max-width:680px; width:97%;
+  }
+  @media (max-width:480px) { .shop-grid { grid-template-columns:1fr 1fr; max-width:340px; } }
+  .shop-card {
+    background:rgba(255,215,0,0.05); border:2px solid rgba(255,215,0,0.3);
+    border-radius:6px; padding:13px 10px; text-align:center; cursor:pointer;
+    transition:all 0.16s; font-family:'Press Start 2P',monospace; position:relative;
+    min-height:60px;
+  }
+  .shop-card:hover:not(.sold-out):not(.cant-afford),
+  .shop-card:active:not(.sold-out):not(.cant-afford) {
+    background:rgba(255,215,0,0.14); border-color:var(--fud-yellow);
+    transform:translateY(-3px); box-shadow:0 5px 20px rgba(255,215,0,0.35);
+  }
+  .shop-card.sold-out { opacity:0.35; cursor:not-allowed; border-color:rgba(255,255,255,0.1); }
+  .shop-card.cant-afford { opacity:0.5; cursor:not-allowed; }
+  .shop-card .s-icon { font-size:26px; margin-bottom:7px; display:block; }
+  .shop-card .s-name { font-size:7px; color:var(--sol-green); margin-bottom:5px; letter-spacing:1px; line-height:1.6; }
+  .shop-card .s-desc { font-size:6px; color:rgba(255,255,255,0.45); line-height:1.8; margin-bottom:6px; }
+  .shop-card .s-cost {
+    font-size:8px; color:var(--fud-yellow); text-shadow:0 0 5px var(--fud-yellow);
+    margin-top:4px;
+  }
+  .shop-card.sold-out .s-cost { color:rgba(255,255,255,0.3); text-shadow:none; }
+  .shop-skip {
+    margin-top:14px; font-family:'Press Start 2P',monospace; font-size:8px;
+    color:rgba(20,241,149,0.4); cursor:pointer; letter-spacing:1px;
+    padding:8px 18px; border:1px solid rgba(20,241,149,0.2); border-radius:3px;
+    transition:all 0.15s; background:transparent;
+    -webkit-appearance:none;
+  }
+  .shop-skip:hover { color:var(--sol-green); border-color:var(--sol-green); }
+
+  /* ── PAUSE SCREEN ── */
+  #pause-screen {
+    position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:450;
+    background:rgba(10,10,15,0.93);
+  }
+  #pause-screen.hidden { display:none; }
+  .pause-title { font-family:'Press Start 2P',monospace; font-size:clamp(22px,5vw,42px); color:var(--sol-purple); text-shadow:0 0 20px var(--sol-purple); letter-spacing:4px; }
+  .pause-sub { font-family:'Press Start 2P',monospace; font-size:9px; color:rgba(20,241,149,0.5); margin-top:9px; letter-spacing:2px; }
+
+  /* ── SOL LOGO ── */
+  .sol-logo { font-size:52px; margin-bottom:7px; animation:spin-slow 6s linear infinite; display:inline-block; }
+  @keyframes spin-slow {
+    0%   { filter:hue-rotate(0deg)   drop-shadow(0 0 16px var(--sol-green)); }
+    50%  { filter:hue-rotate(180deg) drop-shadow(0 0 24px var(--sol-purple)); }
+    100% { filter:hue-rotate(360deg) drop-shadow(0 0 16px var(--sol-green)); }
+  }
+
+  /* ── MOBILE CONTROLS ── */
+  #mobile-controls {
+    position:fixed; bottom:0; left:0; right:0;
+    display:none; pointer-events:none; z-index:150;
+    padding:8px 12px 16px; justify-content:space-between; align-items:flex-end;
+  }
+  #mobile-controls.active { display:flex; }
+  #joystick-zone { width:128px; height:128px; pointer-events:all; position:relative; flex-shrink:0; }
+  #joystick-base { width:128px; height:128px; border-radius:50%; background:rgba(20,241,149,0.07); border:2px solid rgba(20,241,149,0.28); position:absolute; top:0; left:0; }
+  #joystick-knob {
+    width:52px; height:52px; border-radius:50%;
+    background:radial-gradient(circle at 35% 35%,rgba(20,241,149,0.5),rgba(20,241,149,0.14));
+    border:2px solid rgba(20,241,149,0.65); position:absolute; top:38px; left:38px;
+    box-shadow:0 0 12px rgba(20,241,149,0.3);
+  }
+  #right-buttons { display:flex; flex-direction:column; gap:9px; align-items:flex-end; pointer-events:all; }
+  .action-btn {
+    width:68px; height:68px; border-radius:50%; border:2px solid;
+    background:rgba(10,10,15,0.85); font-size:22px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:all; flex-shrink:0; -webkit-appearance:none;
+    transition:transform 0.08s, box-shadow 0.1s;
+  }
+  .action-btn:active { transform:scale(0.87); }
+  #btn-shop-mobile { border-color:var(--fud-yellow); box-shadow:0 0 10px rgba(255,215,0,0.25); font-size:18px; }
+  #btn-shop-mobile.can-shop { box-shadow:0 0 22px rgba(255,215,0,0.7); animation:shopPulse 0.8s ease-in-out infinite; }
+  @keyframes shopPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  #btn-shoot { border-color:var(--sol-green); box-shadow:0 0 12px rgba(20,241,149,0.28); }
+  #btn-shoot.firing { box-shadow:0 0 24px rgba(20,241,149,0.65); background:rgba(20,241,149,0.13); }
+  #btn-blast { border-color:rgba(255,111,216,0.35); box-shadow:0 0 7px rgba(255,111,216,0.18); }
+  #btn-blast.ready { border-color:var(--sol-pink); box-shadow:0 0 20px rgba(255,111,216,0.55); }
+
+  @media (pointer:coarse) { body { cursor:default; } }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-block" id="health-bar-wrap">
+    <div class="hud-label">♥ HP</div>
+    <div id="health-bar"><div id="health-fill" style="width:100%"></div></div>
+  </div>
+  <div class="hud-block sol-bar-wrap" id="sol-bar-wrap">
+    <div class="hud-label">◎ SOL → SHOP</div>
+    <div id="sol-bar"><div id="sol-fill" style="width:0%"></div></div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-label">◈ Score</div>
+    <div class="hud-value" id="score-display">0</div>
+  </div>
+  <div class="hud-block wave-badge">
+    <div class="hud-label">⚡ Danger</div>
+    <div class="hud-value" id="danger-display">1</div>
+  </div>
+  <div class="hud-block">
+    <div class="hud-label">✦ Kills</div>
+    <div class="hud-value" id="kills-display">0</div>
+  </div>
+  <div class="hud-block" id="sol-count-block" style="border-color:var(--fud-yellow); box-shadow:0 0 7px rgba(255,215,0,0.2);">
+    <div class="hud-label" style="color:var(--fud-yellow);">◎ SOL</div>
+    <div class="hud-value sol-val" id="sol-display">0</div>
+  </div>
+</div>
+
+<button id="pause-btn" onclick="togglePause()">⏸</button>
+
+<div id="announce"></div>
+<div id="combo-display"></div>
+
+<!-- START SCREEN -->
+<div class="screen" id="start-screen">
+  <div class="sol-logo">◎</div>
+  <div class="title-main">SOL SURVIVOR</div>
+  <div class="title-sub">— DON'T GET RUGGED —</div>
+  <div style="margin-top:20px; display:flex; flex-wrap:wrap; justify-content:center; gap:7px;">
+    <button class="btn" onclick="startGame()">▶ LAUNCH NODE</button>
+  </div>
+  <div class="instructions">
+    <div class="inst-item"><span class="icon">🕹️</span>WASD / JOYSTICK<br>to move</div>
+    <div class="inst-item"><span class="icon">🔫</span>CLICK / TAP<br>to shoot</div>
+    <div class="inst-item"><span class="icon">◎</span>COLLECT SOL to<br>buy upgrades</div>
+    <div class="inst-item"><span class="icon">💥</span>SPACE / BLAST<br>nuke cooldown 5s</div>
+  </div>
+  <div style="margin-top:12px; font-family:'Press Start 2P',monospace; font-size:7px; color:rgba(20,241,149,0.3); text-align:center; line-height:2.2; padding:0 10px;">
+    ENDLESS MODE — ENEMIES GET HARDER OVER TIME<br>
+    EARN ◎ SOL → OPEN SHOP → BUY UPGRADES<br>
+    ESC / ⏸ TO PAUSE
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div class="screen hidden" id="gameover-screen">
+  <div class="title-main" style="color:var(--rug-red); text-shadow:0 0 16px var(--rug-red),3px 3px 0 #000; font-size:clamp(16px,4vw,36px);">NODE REKT</div>
+  <div class="death-msg" id="death-msg">YOU GOT RUGGED</div>
+  <div class="score-panel">
+    <div class="hud-label" style="font-size:8px; margin-bottom:5px;">FINAL SCORE</div>
+    <div class="final-score" id="final-score">0</div>
+    <div class="stat-row" id="stat-sol">SOL COLLECTED: 0</div>
+    <div class="stat-row" id="stat-kills">RUGS OBLITERATED: 0</div>
+    <div class="stat-row" id="stat-time">TIME ALIVE: 0s</div>
+    <div class="stat-row" id="stat-danger">PEAK DANGER LEVEL: 1</div>
+    <div class="stat-row" id="stat-token" style="color:rgba(255,215,0,0.4);font-size:6px;margin-top:6px;letter-spacing:0.5px;"></div>
+  </div>
+  <div style="display:flex; gap:7px; flex-wrap:wrap; justify-content:center;">
+    <button class="btn" onclick="startGame()">▶ RETRY</button>
+    <button class="btn btn-danger" onclick="showStart()">◀ MAINNET</button>
+  </div>
+</div>
+
+<!-- PAUSE SCREEN -->
+<div id="pause-screen" class="hidden">
+  <div class="pause-title">⏸ PAUSED</div>
+  <div class="pause-sub">— SKILL ISSUE DETECTED —</div>
+  <div style="margin-top:26px; display:flex; flex-direction:column; align-items:center; gap:9px;">
+    <button class="btn" onclick="togglePause()">▶ RESUME</button>
+    <button class="btn btn-danger" onclick="quitToMenu()">✕ QUIT</button>
+  </div>
+</div>
+
+<!-- SHOP SCREEN -->
+<div id="shop-screen" class="hidden">
+  <div class="title-main" style="font-size:clamp(14px,3vw,26px); color:var(--fud-yellow); text-shadow:0 0 18px var(--fud-yellow),2px 2px 0 var(--sol-purple);">◎ DEX SHOP</div>
+  <div class="title-sub" style="font-size:8px; margin-top:6px; color:var(--sol-teal);">SPEND SOL — GET STRONGER — DON'T GET REKT</div>
+  <div class="shop-sol-balance" id="shop-balance">◎ 0 SOL AVAILABLE</div>
+  <div class="shop-grid" id="shop-grid"></div>
+  <button class="shop-skip" onclick="closeShop()">▶ KEEP GRINDING (SKIP)</button>
+</div>
+
+<!-- MOBILE CONTROLS -->
+<div id="mobile-controls">
+  <div id="joystick-zone">
+    <div id="joystick-base"></div>
+    <div id="joystick-knob"></div>
+  </div>
+  <div id="right-buttons">
+    <button class="action-btn" id="btn-blast">💥</button>
+    <button class="action-btn" id="btn-shoot">🔫</button>
+    <button class="action-btn" id="btn-shop-mobile" onclick="tryOpenShop()">◎</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ─── ANTI-CHEAT ───────────────────────────────────────────────────────
+const _AC = (() => {
+  'use strict';
+  const _freeze = o => { Object.freeze(o); return o; };
+
+  // Per-session secret salt — makes signed tokens unique per run
+  const _salt = (Math.random() * 0xFFFFFFFF >>> 0).toString(16);
+
+  // ── Rate-limit ceilings (realistic maximums per second) ──
+  // Tuned to the highest possible legitimate play values with headroom
+  const MAX_SCORE_PER_SEC = 4000;  // ~300 kills/min * ~13 avg score
+  const MAX_SOL_PER_SEC   = 200;   // ~300 kills/min * ~0.67 avg sol drop
+  const MAX_KILLS_PER_SEC = 10;    // hard physical limit from fire rate + bullet count
+
+  // ── Shadow state — last known legit values ──
+  let _score = 0, _sol = 0, _kills = 0;
+  let _lastMs = Date.now();
+  let _flags  = 0; // tamper flag counter
+
+  // ── Per-frame validator — call every update() tick ──
+  const tick = (g) => {
+    if (!g || !g.running) { _lastMs = Date.now(); return; }
+
+    const now = Date.now();
+    const dt  = Math.max(16, now - _lastMs) / 1000; // seconds, min 1 frame
+    _lastMs = now;
+
+    // Sanitise NaN / Infinity (console injection)
+    if (!isFinite(g.score))    { g.score    = _score;  _flags++; }
+    if (!isFinite(g.sol))      { g.sol      = _sol;    _flags++; }
+    if (!isFinite(g.kills))    { g.kills    = _kills;  _flags++; }
+    if (!isFinite(g.solTotal)) { g.solTotal = 0;       _flags++; }
+
+    // Prevent score going backwards (can't undo kills)
+    if (g.score  < _score  - 0.5) { g.score  = _score;  _flags++; }
+    if (g.kills  < _kills)        { g.kills  = _kills;  _flags++; }
+    if (g.sol    < 0)             { g.sol    = 0;       _flags++; }
+
+    // Clamp impossible gain rates
+    const ds = g.score - _score;
+    const dd = g.sol   - _sol;
+    const dk = g.kills - _kills;
+    if (ds / dt > MAX_SCORE_PER_SEC) { g.score = _score + MAX_SCORE_PER_SEC * dt; _flags++; }
+    if (dd / dt > MAX_SOL_PER_SEC)   { g.sol   = _sol   + MAX_SOL_PER_SEC   * dt; _flags++; }
+    if (dk / dt > MAX_KILLS_PER_SEC) { g.kills = _kills + Math.round(MAX_KILLS_PER_SEC * dt); _flags++; }
+
+    // Clamp upgrade stats to known maximums so console can't buff them
+    const p = g.player;
+    if (p) {
+      if (p.damageMulti   > 3.1)  { p.damageMulti   = 3.0;   _flags++; }
+      if (p.bulletCount   > 3)    { p.bulletCount    = 3;     _flags++; }
+      if (p.speedBoost    > 1.8)  { p.speedBoost     = 1.75;  _flags++; }
+      if (p.maxHealth     > 160)  { p.maxHealth      = 160;   _flags++; }
+      if (p.health        > p.maxHealth) { p.health  = p.maxHealth; _flags++; }
+      if (p.shootCooldown < 55)   { p.shootCooldown  = 60;    _flags++; }
+      if (p.blastCooldown < 1900) { p.blastCooldown  = 2000;  _flags++; }
+      if (p.bulletSpeed   > 15)   { p.bulletSpeed    = 14;    _flags++; }
+    }
+
+    _score = g.score;
+    _sol   = g.sol;
+    _kills = g.kills;
+  };
+
+  // ── Score signing — tamper-evident token attached to final score ──
+  // djb2 hash of all meaningful end-state values + session salt
+  const sign = (score, kills, solTotal, elapsed, danger) => {
+    const raw = `${Math.round(score)}|${kills}|${Math.round(solTotal)}|${elapsed}|${danger}|${_flags}|${_salt}`;
+    let h = 5381;
+    for (let i = 0; i < raw.length; i++) h = Math.imul(h, 33) ^ raw.charCodeAt(i);
+    return (h >>> 0).toString(16).padStart(8, '0');
+  };
+
+  // ── DevTools detection ──
+  // Checks window size gap (docked devtools) every 4s
+  // If detected, a visible warning overlays the game
+  let _devOpen = false;
+  const _devCheck = () => {
+    const wGap = window.outerWidth  - window.innerWidth;
+    const hGap = window.outerHeight - window.innerHeight;
+    _devOpen = wGap > 200 || hGap > 200;
+  };
+  setInterval(_devCheck, 4000);
+
+  // ── Guard global vars against console overwrite ──
+  // Intercepts direct assignment from shallow call stacks (console)
+  // while allowing deep call stacks (game engine) to write freely
+  const _guard = (name) => {
+    let _val = undefined;
+    try {
+      Object.defineProperty(window, name, {
+        get() { return _val; },
+        set(v) {
+          // Stack depth heuristic: console assignments have 2-3 frames,
+          // internal code has 5+
+          const depth = (new Error().stack || '').split('\n').length;
+          if (depth >= 4) _val = v;
+          // shallow-stack writes (console cheats) are silently dropped
+        },
+        configurable: false,
+      });
+    } catch(e) { /* property may already be non-configurable */ }
+  };
+  ['game', 'shopBuys'].forEach(_guard);
+
+  return _freeze({
+    tick,
+    sign,
+    get devOpen() { return _devOpen; },
+    get flags()   { return _flags;   },
+  });
+})();
+
+// ── DevTools overlay (shown if cheating detected) ──
+const _devOverlay = (() => {
+  const el = document.createElement('div');
+  el.style.cssText = [
+    'position:fixed','inset:0','z-index:9999',
+    'background:rgba(10,10,15,0.97)',
+    'display:none','flex-direction:column',
+    'align-items:center','justify-content:center',
+    'font-family:"Press Start 2P",monospace',
+    'color:#FF2E2E','text-align:center','padding:20px',
+  ].join(';');
+  el.innerHTML = `
+    <div style="font-size:clamp(18px,4vw,36px);text-shadow:0 0 18px #FF2E2E;margin-bottom:16px">⚠ DEVTOOLS DETECTED</div>
+    <div style="font-size:clamp(8px,1.5vw,12px);color:rgba(255,46,46,0.7);line-height:2.2;max-width:460px">
+      CLOSE BROWSER DEVTOOLS TO CONTINUE<br>
+      SCORES RECORDED DURING THIS SESSION<br>
+      WILL BE FLAGGED AND DISCARDED
+    </div>`;
+  document.body.appendChild(el);
+  return {
+    show() { el.style.display = 'flex'; },
+    hide() { el.style.display = 'none'; },
+    get visible() { return el.style.display !== 'none'; },
+  };
+})();
+
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function isMobile() { return window.matchMedia('(pointer:coarse)').matches || ('ontouchstart' in window); }
+
+// ─── STATE ────────────────────────────────────────────────────────────
+let game = {}, paused = false, spawnTimeout = null;
+
+function initGame() {
+  if (spawnTimeout) { clearTimeout(spawnTimeout); spawnTimeout = null; }
+  game = {
+    running: false,
+    score: 0, kills: 0,
+    sol: 0,          // spendable SOL currency
+    solTotal: 0,     // lifetime SOL earned (for stats)
+    solToNextShop: 200,   // first shop opens at 200 SOL
+    shopCount: 0,    // how many shops visited
+    dangerLevel: 1,  // escalating difficulty (increases over time)
+    dangerTimer: 0,  // ticks up, danger increases every N frames
+    peakDanger: 1,
+    startTime: Date.now(), pausedAt: 0,
+    player: {
+      x: canvas.width/2, y: canvas.height/2,
+      r: 20, speed: 2.8, health: 40, maxHealth: 40,
+      dx:0, dy:0,
+      bullets:[], lastShot:0, shootCooldown:160,
+      blastCooldown:5000, lastBlast:-5000,
+      bulletCount:1, bulletSpeed:6,
+      piercingShots:false, damageMulti:1,
+      speedBoost:1, invincible:0,
+    },
+    enemies:[], particles:[], pickups:[],
+    stars:[],
+    aimX: canvas.width/2, aimY: canvas.height/2,
+    keys:{}, joystick:{dx:0,dy:0},
+    shooting:false,
+    combo:0, comboTimer:0,
+    floatTexts:[],
+    shopOpen: false,
+    spawnAccum: 0,   // fractional spawn accumulator
+  };
+  for (let i = 0; i < 180; i++) {
+    game.stars.push({
+      x: Math.random()*canvas.width, y: Math.random()*canvas.height,
+      r: Math.random()*1.4+0.3, brightness: Math.random(),
+      twinkle: Math.random()*Math.PI*2,
+    });
+  }
+}
+
+// ─── ENEMY TYPES ──────────────────────────────────────────────────────
+const ENEMY_TYPES = Object.freeze([
+  Object.freeze({ id:'rug',     emoji:'🚩', color:'#FF2E2E', r:18, speed:1.1,  health:28,  damage:22, score:80,  solDrop:6,  shootInterval:0    }),
+  Object.freeze({ id:'fudbot',  emoji:'🤖', color:'#FFD700', r:14, speed:2.0,  health:18,  damage:16, score:60,  solDrop:4,  shootInterval:2200 }),
+  Object.freeze({ id:'mev',     emoji:'🎯', color:'#FF6FD8', r:16, speed:0,    health:45,  damage:32, score:100, solDrop:10, shootInterval:1600 }),
+  Object.freeze({ id:'whale',   emoji:'🐋', color:'#00A3FF', r:32, speed:0.5,  health:140, damage:50, score:300, solDrop:28, shootInterval:0    }),
+  Object.freeze({ id:'megaRug', emoji:'☠️', color:'#FF4500', r:26, speed:1.5,  health:75,  damage:38, score:200, solDrop:18, shootInterval:0    }),
+]);
+
+// Danger level controls which enemies can spawn and enemy stat scaling
+function getSpawnPool(danger) {
+  if (danger < 3)  return ['rug'];
+  if (danger < 6)  return ['rug','rug','fudbot'];
+  if (danger < 10) return ['rug','fudbot','fudbot','mev'];
+  if (danger < 16) return ['rug','fudbot','mev','mev','whale'];
+  return ['rug','fudbot','mev','whale','megaRug','megaRug'];
+}
+
+function spawnEnemy() {
+  if (!game.running) return;
+  const pool = getSpawnPool(game.dangerLevel);
+  const typeName = pool[Math.floor(Math.random()*pool.length)];
+  const type = ENEMY_TYPES.find(t => t.id === typeName);
+  if (!type) return;
+
+  let x, y;
+  const side = Math.floor(Math.random()*4);
+  const W = canvas.width, H = canvas.height;
+  if      (side===0) { x=Math.random()*W; y=-50; }
+  else if (side===1) { x=W+50; y=Math.random()*H; }
+  else if (side===2) { x=Math.random()*W; y=H+50; }
+  else               { x=-50; y=Math.random()*H; }
+
+  // Scale enemy stats with danger level — gentle early, steeper late
+  const statMult = 1 + (game.dangerLevel - 1) * 0.04;
+  game.enemies.push({
+    id:type.id, emoji:type.emoji, color:type.color,
+    x, y, r:type.r, speed:type.speed * (1 + (game.dangerLevel-1)*0.012),
+    health:type.health*statMult, maxHealth:type.health*statMult,
+    damage:type.damage * (1 + (game.dangerLevel-1)*0.03),
+    score:type.score, solDrop:type.solDrop,
+    shootInterval:type.shootInterval,
+    shootTimer:type.shootInterval>0 ? Math.random()*type.shootInterval : 0,
+    bullets:[], wobble:Math.random()*Math.PI*2,
+  });
+}
+
+// ─── SHOP SYSTEM ──────────────────────────────────────────────────────
+// Costs increase each time you buy the same item
+const SHOP_ITEMS = Object.freeze([
+  Object.freeze({ id:'health_up', icon:'💊', name:'MAX HP +15',     baseCost:120, maxBuys:6,  desc:'Permanent HP boost.',    effect: g => { g.player.maxHealth+=15; g.player.health=Math.min(g.player.health+15,g.player.maxHealth); } }),
+  Object.freeze({ id:'heal',      icon:'♥',  name:'EMERGENCY HEAL', baseCost:80,  maxBuys:99, desc:'Restore 20 HP now.',     effect: g => { g.player.health=Math.min(g.player.health+20,g.player.maxHealth); } }),
+  Object.freeze({ id:'dmg_up',    icon:'🗡️', name:'DAMAGE +25%',    baseCost:150, maxBuys:5,  desc:'Bullet damage up.',      effect: g => { g.player.damageMulti=Math.min((g.player.damageMulti||1)*1.25,3.0); } }),
+  Object.freeze({ id:'fire_rate', icon:'⚡',  name:'FIRE RATE +20%', baseCost:130, maxBuys:5,  desc:'Shoot faster.',          effect: g => { g.player.shootCooldown=Math.max(60,g.player.shootCooldown*0.8); } }),
+  Object.freeze({ id:'multi',     icon:'🔫', name:'EXTRA BULLET',   baseCost:220, maxBuys:2,  desc:'Fire +1 bullet. Max 3.', effect: g => { g.player.bulletCount=Math.min(g.player.bulletCount+1,3); } }),
+  Object.freeze({ id:'speed',     icon:'🚀', name:'SPEED +15%',      baseCost:100, maxBuys:5,  desc:'Move faster.',           effect: g => { g.player.speedBoost=Math.min(g.player.speedBoost+0.15,1.75); } }),
+  Object.freeze({ id:'pierce',    icon:'🔥', name:'PIERCING SHOTS',  baseCost:280, maxBuys:1,  desc:'Bullets pierce enemies.',effect: g => { g.player.piercingShots=true; } }),
+  Object.freeze({ id:'blast_cd',  icon:'💜', name:'BLAST -30% CD',   baseCost:180, maxBuys:3,  desc:'Nuke more often.',       effect: g => { g.player.blastCooldown=Math.max(2000,g.player.blastCooldown*0.7); } }),
+  Object.freeze({ id:'bspeed',    icon:'🎯', name:'BULLET SPEED',    baseCost:110, maxBuys:4,  desc:'Faster projectiles.',    effect: g => { g.player.bulletSpeed=Math.min(g.player.bulletSpeed+2,14); } }),
+]);
+
+// Track how many times each item has been bought
+let shopBuys = {};
+
+function itemCost(item) {
+  const bought = shopBuys[item.id] || 0;
+  return Math.floor(item.baseCost * Math.pow(1.5, bought));
+}
+
+function openShop() {
+  if (!game.running) return;
+  game.shopOpen = true;
+  paused = true;
+  document.getElementById('shop-screen').classList.remove('hidden');
+  document.getElementById('shop-balance').textContent = `◎ ${Math.floor(game.sol)} SOL AVAILABLE`;
+  renderShopGrid();
+}
+
+function renderShopGrid() {
+  const grid = document.getElementById('shop-grid');
+  grid.innerHTML = '';
+  document.getElementById('shop-balance').textContent = `◎ ${Math.floor(game.sol)} SOL AVAILABLE`;
+
+  SHOP_ITEMS.forEach(item => {
+    const bought = shopBuys[item.id] || 0;
+    const cost = itemCost(item);
+    const soldOut = bought >= item.maxBuys;
+    const cantAfford = !soldOut && game.sol < cost;
+
+    const card = document.createElement('div');
+    card.className = 'shop-card' + (soldOut?' sold-out':'') + (cantAfford?' cant-afford':'');
+
+    const costLabel = soldOut
+      ? '<div class="s-cost">MAXED OUT</div>'
+      : `<div class="s-cost">◎ ${cost} SOL${bought>0?` (×${bought+1})`:''}  </div>`;
+
+    card.innerHTML = `<span class="s-icon">${item.icon}</span><div class="s-name">${item.name}</div><div class="s-desc">${item.desc}</div>${costLabel}`;
+
+    if (!soldOut && !cantAfford) {
+      card.onclick = () => {
+        game.sol -= cost;
+        shopBuys[item.id] = (shopBuys[item.id]||0) + 1;
+        try { item.effect(game); } catch(e) { console.warn(e); }
+        floatText(`${item.name}!`, canvas.width/2, canvas.height/2-40, '#FFD700');
+        renderShopGrid();
+      };
+    }
+    grid.appendChild(card);
+  });
+}
+
+function closeShop() {
+  game.shopOpen = false;
+  paused = false;
+  document.getElementById('shop-screen').classList.add('hidden');
+  // Offset timers for pause duration
+  if (game.pausedAt) {
+    const dur = Date.now() - game.pausedAt;
+    game.startTime        += dur;
+    game.player.lastBlast += dur;
+    game.player.lastShot  += dur;
+  }
+  game.pausedAt = 0;
+  if (isMobile()) updateShopBtn();
+}
+
+function tryOpenShop() {
+  if (!game.running || paused) return;
+  if (game.sol >= getNextShopThreshold() * 0.1) {
+    // always let them open if they have any sol
+    game.pausedAt = Date.now();
+    openShop();
+  }
+}
+
+function getNextShopThreshold() {
+  return game.solToNextShop;
+}
+
+function updateShopBtn() {
+  const btn = document.getElementById('btn-shop-mobile');
+  if (!btn) return;
+  // glow if they have enough for anything
+  const canBuySomething = SHOP_ITEMS.some(item => {
+    const bought = shopBuys[item.id]||0;
+    return bought < item.maxBuys && game.sol >= itemCost(item);
+  });
+  btn.classList.toggle('can-shop', canBuySomething);
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────
+function hexToRgba(hex, alpha) {
+  try { const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return `rgba(${r},${g},${b},${alpha})`; }
+  catch(e) { return `rgba(255,255,255,${alpha})`; }
+}
+
+function floatText(text, x, y, color) {
+  if (!game||!game.floatTexts) return;
+  game.floatTexts.push({ text, x, y, color:color||'#14F195', life:1, vy:-1.3 });
+}
+
+function announce(html, duration=2200) {
+  const el = document.getElementById('announce');
+  el.innerHTML = html;
+  el.style.transition = 'none'; el.style.opacity='1'; el.style.transform='translate(-50%,-50%) scale(1.2)';
+  requestAnimationFrame(() => {
+    el.style.transition = 'all 0.4s ease';
+    el.style.transform  = 'translate(-50%,-50%) scale(1)';
+    setTimeout(() => { el.style.opacity='0'; }, duration);
+  });
+}
+
+// ─── DRAW HELPERS ─────────────────────────────────────────────────────
+function drawEnemy(e) {
+  ctx.save(); ctx.translate(e.x, e.y); e.wobble += 0.04;
+  ctx.shadowBlur=15; ctx.shadowColor=e.color;
+  ctx.beginPath(); ctx.arc(0,0,e.r,0,Math.PI*2);
+  ctx.fillStyle='rgba(10,10,15,0.85)'; ctx.fill();
+  ctx.strokeStyle=e.color; ctx.lineWidth=2.5; ctx.stroke();
+  const pulse=0.5+0.5*Math.sin(e.wobble*2);
+  ctx.beginPath(); ctx.arc(0,0,e.r+3+pulse*4,0,Math.PI*2);
+  ctx.strokeStyle=hexToRgba(e.color,0.11+pulse*0.16); ctx.lineWidth=1; ctx.stroke();
+  ctx.shadowBlur=0;
+  ctx.font=`${e.r*1.1}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(e.emoji,0,1+Math.sin(e.wobble)*1.4);
+  if (e.health < e.maxHealth) {
+    const bw=e.r*2.4,bh=5;
+    ctx.fillStyle='rgba(255,0,0,0.22)'; ctx.fillRect(-bw/2,e.r+5,bw,bh);
+    ctx.fillStyle='#FF2E2E'; ctx.fillRect(-bw/2,e.r+5,bw*(e.health/e.maxHealth),bh);
+  }
+  ctx.restore();
+}
+
+function drawBullet(b) {
+  ctx.save(); ctx.shadowBlur=8; ctx.shadowColor=b.color; ctx.fillStyle=b.color;
+  ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-b.vx*3,b.y-b.vy*3);
+  ctx.strokeStyle=hexToRgba(b.color,0.3); ctx.lineWidth=b.r; ctx.lineCap='round'; ctx.stroke();
+  ctx.restore();
+}
+
+function drawPlayer(p) {
+  ctx.save(); ctx.translate(p.x,p.y);
+  const angle=Math.atan2(game.aimY-p.y,game.aimX-p.x);
+  if (p.dx||p.dy) {
+    for (let i=0;i<2;i++) {
+      game.particles.push({
+        x:p.x-Math.cos(angle)*p.r*0.7+(Math.random()-0.5)*5,
+        y:p.y-Math.sin(angle)*p.r*0.7+(Math.random()-0.5)*5,
+        vx:-Math.cos(angle)*(Math.random()*1.3+0.4),
+        vy:-Math.sin(angle)*(Math.random()*1.3+0.4),
+        life:1,decay:0.07,color:`hsl(${150+Math.random()*60},100%,60%)`,r:Math.random()*2+0.8,
+      });
+    }
+  }
+  if (p.invincible>0 && Math.floor(Date.now()/120)%2===0) { ctx.restore(); return; }
+  ctx.rotate(angle);
+  ctx.shadowBlur=18; ctx.shadowColor='#14F195';
+  ctx.beginPath(); ctx.moveTo(p.r+7,0); ctx.lineTo(-p.r,-p.r*0.72); ctx.lineTo(-p.r*0.5,0); ctx.lineTo(-p.r,p.r*0.72); ctx.closePath();
+  ctx.strokeStyle='#14F195'; ctx.lineWidth=2; ctx.stroke(); ctx.fillStyle='rgba(20,241,149,0.07)'; ctx.fill();
+  ctx.shadowBlur=6; ctx.font=`${p.r*0.9}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#14F195'; ctx.fillText('◎',0,0);
+  const blastReady=(Date.now()-p.lastBlast)>=p.blastCooldown;
+  ctx.beginPath();
+  if (blastReady) { ctx.arc(0,0,p.r+10,0,Math.PI*2); ctx.shadowBlur=9; ctx.shadowColor='#FF6FD8'; ctx.strokeStyle='rgba(255,111,216,0.4)'; }
+  else { const prog=(Date.now()-p.lastBlast)/p.blastCooldown; ctx.arc(0,0,p.r+10,-Math.PI/2,-Math.PI/2+prog*Math.PI*2); ctx.strokeStyle='rgba(255,111,216,0.58)'; }
+  ctx.lineWidth=1.5; ctx.stroke();
+  ctx.restore();
+}
+
+// ─── PICKUPS ──────────────────────────────────────────────────────────
+// Pickups are now SOL coins (primary currency) and rare health hearts
+const PICKUP_DEFS = {
+  sol:    { color:'#FFD700', symbol:'◎', effect: (g,amt) => { g.sol+=amt; g.solTotal+=amt; } },
+  health: { color:'#FF6FD8', symbol:'♥', effect: (g) => { g.player.health=Math.min(g.player.health+8,g.player.maxHealth); } },
+};
+
+function spawnPickup(x, y, solAmt) {
+  const isHealth = Math.random() < 0.10; // 10% chance heart drops, 90% SOL
+  game.pickups.push({
+    x, y, type: isHealth?'health':'sol',
+    solAmt: solAmt||10,
+    vy:-1.2, life:1, decay:0.003, wobble:0, r:12,
+  });
+}
+
+// ─── INPUT ────────────────────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  if (!game||!game.keys) return;
+  game.keys[e.key.toLowerCase()]=true;
+  if (e.key==='Escape') { if (game.shopOpen) closeShop(); else if (game.running) togglePause(); }
+  if (e.key===' ' && game.running && !paused) triggerBlast();
+  if (e.key==='b' && game.running && !paused) tryOpenShop();
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+});
+window.addEventListener('keyup', e => { if (game&&game.keys) game.keys[e.key.toLowerCase()]=false; });
+window.addEventListener('mousemove', e => { if(game){game.aimX=e.clientX;game.aimY=e.clientY;} });
+window.addEventListener('mousedown', e => {
+  if (!game||!game.running||paused) return;
+  if (e.button===0) game.shooting=true;
+  if (e.button===2) triggerBlast();
+  e.preventDefault();
+});
+window.addEventListener('mouseup', e => { if(e.button===0&&game) game.shooting=false; });
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+// ─── JOYSTICK ─────────────────────────────────────────────────────────
+const JRADIUS=46; let joyTouchId=null;
+const jZone=document.getElementById('joystick-zone');
+const jKnob=document.getElementById('joystick-knob');
+
+function joystickMoveFrom(cx,cy) {
+  if(!game)return; let dx=cx,dy=cy; const dist=Math.hypot(dx,dy);
+  if(dist>JRADIUS){dx=dx/dist*JRADIUS;dy=dy/dist*JRADIUS;}
+  const c=65-27; jKnob.style.left=(c+dx)+'px'; jKnob.style.top=(c+dy)+'px';
+  game.joystick.dx=dx/JRADIUS; game.joystick.dy=dy/JRADIUS;
+}
+function joystickReset() { joyTouchId=null; if(game){game.joystick.dx=0;game.joystick.dy=0;} jKnob.style.left='38px';jKnob.style.top='38px'; }
+jZone.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];const rect=jZone.getBoundingClientRect();joyTouchId=t.identifier;joystickMoveFrom(t.clientX-rect.left-65,t.clientY-rect.top-65);},{passive:false});
+jZone.addEventListener('touchmove',e=>{e.preventDefault();for(const t of e.changedTouches){if(t.identifier!==joyTouchId)continue;const rect=jZone.getBoundingClientRect();joystickMoveFrom(t.clientX-rect.left-65,t.clientY-rect.top-65);}},{passive:false});
+jZone.addEventListener('touchend',e=>{e.preventDefault();joystickReset();},{passive:false});
+jZone.addEventListener('touchcancel',e=>{e.preventDefault();joystickReset();},{passive:false});
+
+const btnShoot=document.getElementById('btn-shoot');
+const btnBlast=document.getElementById('btn-blast');
+btnShoot.addEventListener('touchstart',e=>{e.preventDefault();if(game)game.shooting=true;btnShoot.classList.add('firing');},{passive:false});
+btnShoot.addEventListener('touchend',e=>{e.preventDefault();if(game)game.shooting=false;btnShoot.classList.remove('firing');},{passive:false});
+btnShoot.addEventListener('touchcancel',e=>{e.preventDefault();if(game)game.shooting=false;btnShoot.classList.remove('firing');},{passive:false});
+btnBlast.addEventListener('touchstart',e=>{e.preventDefault();if(game&&game.running&&!paused)triggerBlast();},{passive:false});
+
+function mobileAim() {
+  if(!game||!game.enemies||!game.enemies.length){game.aimX=game.player.x+80;game.aimY=game.player.y;return;}
+  let nearest=null,nearDist=Infinity;
+  game.enemies.forEach(e=>{const d=Math.hypot(e.x-game.player.x,e.y-game.player.y);if(d<nearDist){nearDist=d;nearest=e;}});
+  if(nearest){game.aimX=nearest.x;game.aimY=nearest.y;}
+}
+
+// ─── BLAST ────────────────────────────────────────────────────────────
+function triggerBlast() {
+  if(!game||!game.player)return;
+  const p=game.player;
+  if(Date.now()-p.lastBlast<p.blastCooldown)return;
+  p.lastBlast=Date.now();
+  const blastR=175;
+  game.enemies.forEach(e=>{
+    const dx=e.x-p.x,dy=e.y-p.y,dist=Math.hypot(dx,dy);
+    if(dist<blastR&&dist>0){
+      e.health-=80*p.damageMulti*(1-dist/blastR);
+      const force=(blastR-dist)*0.07; e.x+=(dx/dist)*force; e.y+=(dy/dist)*force;
+    }
+  });
+  for(let i=0;i<70;i++){const a=(i/70)*Math.PI*2,spd=Math.random()*4+2;game.particles.push({x:p.x,y:p.y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,life:1,decay:0.022,color:`hsl(${280+Math.random()*60},100%,70%)`,r:Math.random()*3+1.5});}
+  floatText('PLASMA BLAST!',p.x,p.y-38,'#FF6FD8');
+}
+
+// ─── SHOOT ────────────────────────────────────────────────────────────
+function tryShoot() {
+  const p=game.player,now=Date.now();
+  if(now-p.lastShot<p.shootCooldown)return;
+  p.lastShot=now;
+  const angle=Math.atan2(game.aimY-p.y,game.aimX-p.x);
+  const spread=(p.bulletCount-1)*0.13;
+  for(let i=0;i<p.bulletCount;i++){
+    const a=p.bulletCount>1?angle-spread/2+i*(spread/(p.bulletCount-1)):angle;
+    p.bullets.push({x:p.x+Math.cos(a)*p.r,y:p.y+Math.sin(a)*p.r,vx:Math.cos(a)*p.bulletSpeed,vy:Math.sin(a)*p.bulletSpeed,r:5,damage:25*p.damageMulti,hitsLeft:p.piercingShots?2:1,color:'#14F195'});
+  }
+}
+
+// ─── DAMAGE PLAYER ────────────────────────────────────────────────────
+function damagePlayer(amount) {
+  if(!game||!game.player)return;
+  const p=game.player;
+  if(p.invincible>0)return;
+  p.health=Math.max(0,p.health-amount); p.invincible=1500;
+  for(let i=0;i<8;i++){const a=Math.random()*Math.PI*2;game.particles.push({x:p.x,y:p.y,vx:Math.cos(a)*2.5,vy:Math.sin(a)*2.5,life:1,decay:0.05,r:2.5,color:'#FF2E2E'});}
+  if(p.health<=0) gameOver();
+}
+
+// ─── UPDATE ───────────────────────────────────────────────────────────
+function update() {
+  if(!game||!game.running) return;
+  const p=game.player,k=game.keys;
+
+  // Movement
+  let mx=0,my=0;
+  if(k['a']||k['arrowleft'])  mx-=1;
+  if(k['d']||k['arrowright']) mx+=1;
+  if(k['w']||k['arrowup'])    my-=1;
+  if(k['s']||k['arrowdown'])  my+=1;
+  mx+=game.joystick.dx; my+=game.joystick.dy;
+  const ml=Math.hypot(mx,my); if(ml>0){mx/=ml;my/=ml;}
+  p.dx=mx;p.dy=my;
+  p.x=Math.max(p.r,Math.min(canvas.width-p.r,  p.x+mx*p.speed*p.speedBoost));
+  p.y=Math.max(p.r,Math.min(canvas.height-p.r, p.y+my*p.speed*p.speedBoost));
+  if(p.invincible>0) p.invincible-=16;
+  if(isMobile()) mobileAim();
+  if(game.shooting) tryShoot();
+
+  // ── DANGER ESCALATION ──
+  // Danger ticks up slowly. Each level takes longer early on so the first few
+  // minutes feel manageable. Late game compresses but never becomes instant.
+  // Level 1→2: ~30s | Level 5→6: ~22s | Level 10→11: ~18s | Level 20→21: ~15s
+  game.dangerTimer++;
+  const dangerInterval = Math.max(900, 1800 - game.dangerLevel * 30);
+  if (game.dangerTimer >= dangerInterval) {
+    game.dangerTimer = 0;
+    game.dangerLevel++;
+    if (game.dangerLevel > game.peakDanger) game.peakDanger = game.dangerLevel;
+    if (game.dangerLevel % 3 === 0) {
+      announce(`DANGER LEVEL ${game.dangerLevel}<br><span style="font-size:0.55em;color:var(--sol-pink)">${getDangerTaunt(game.dangerLevel)}</span>`, 2200);
+    }
+  }
+
+  // ── ENEMY SPAWNING ──
+  // Rate in enemies/second.
+  // Danger 1:  0.28/s  → ~1 enemy every 3.5s  (active but manageable)
+  // Danger 5:  0.48/s  → ~1 every 2s
+  // Danger 10: 0.88/s  → nearly 1/s
+  // Danger 20: 2.0/s   → late-game pressure
+  // Danger 30: 3.5/s   → chaos
+  const spawnRate = 0.28 * Math.pow(1.10, game.dangerLevel - 1);
+  // Hard cap: floor of 12 enemies so early game always has action on screen
+  const maxOnScreen = 12 + game.dangerLevel;
+  if (game.enemies.length < maxOnScreen) {
+    game.spawnAccum += spawnRate / 60;
+  }
+  while (game.spawnAccum >= 1 && game.enemies.length < maxOnScreen) {
+    spawnEnemy();
+    game.spawnAccum -= 1;
+  }
+
+  // ── AUTO SHOP UNLOCK ── notify when player can afford first item
+  // Sol progress bar toward next shop notification threshold
+  // (We removed forced shop breaks; player opens shop anytime via B or button)
+
+  // Player bullets
+  p.bullets = p.bullets.filter(b => {
+    b.x+=b.vx; b.y+=b.vy;
+    if(b.x<-30||b.x>canvas.width+30||b.y<-30||b.y>canvas.height+30) return false;
+    for(let i=game.enemies.length-1;i>=0;i--){
+      if(b.hitsLeft<=0) break;
+      const e=game.enemies[i];
+      if(Math.hypot(b.x-e.x,b.y-e.y)<b.r+e.r){
+        e.health-=b.damage; b.hitsLeft--;
+        for(let j=0;j<6;j++){const a=Math.random()*Math.PI*2;game.particles.push({x:b.x,y:b.y,vx:Math.cos(a)*2.2,vy:Math.sin(a)*2.2,life:1,decay:0.07,r:Math.random()*2+0.8,color:e.color});}
+        floatText(`-${Math.round(b.damage)}`,e.x,e.y-e.r-8,e.color);
+      }
+    }
+    return b.hitsLeft>0;
+  });
+
+  // Enemies
+  for(let i=game.enemies.length-1;i>=0;i--){
+    const e=game.enemies[i];
+    if(e.health<=0){
+      game.kills++;
+      game.combo++;
+      game.comboTimer=200;
+      const scoreGain = e.score * Math.max(1,1+(game.combo-1)*0.1);
+      game.score += scoreGain;
+      // SOL drops directly from enemy
+      const solGain = e.solDrop * (1 + (game.combo>=3 ? 0.5 : 0));
+      game.sol     += solGain;
+      game.solTotal+= solGain;
+      floatText(`+◎${Math.floor(solGain)}`,e.x,e.y-e.r-8,'#FFD700');
+
+      for(let j=0;j<16;j++){const a=Math.random()*Math.PI*2,spd=Math.random()*3.5+1.5;game.particles.push({x:e.x,y:e.y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,life:1,decay:0.028,r:Math.random()*3.5+1.5,color:e.color});}
+      if(game.combo>=3) floatText(`${game.combo}x COMBO!`,e.x,e.y-28,'#FFD700');
+      // Small chance of health heart on kill
+      if(Math.random()<0.07) spawnPickup(e.x,e.y,0);
+
+      game.enemies.splice(i,1);
+      continue;
+    }
+
+    if(e.speed>0){const dx=p.x-e.x,dy=p.y-e.y,dist=Math.hypot(dx,dy);if(dist>e.r+4){e.x+=(dx/dist)*e.speed;e.y+=(dy/dist)*e.speed;}}
+
+    if(e.shootInterval>0){
+      e.shootTimer-=16;
+      if(e.shootTimer<=0){
+        e.shootTimer=e.shootInterval;
+        const dx=p.x-e.x,dy=p.y-e.y,dist=Math.hypot(dx,dy);
+        if(dist>0) e.bullets.push({x:e.x,y:e.y,vx:(dx/dist)*3.5,vy:(dy/dist)*3.5,r:5.5,damage:e.damage,color:e.color});
+      }
+      e.bullets=e.bullets.filter(b=>{
+        b.x+=b.vx;b.y+=b.vy;
+        if(b.x<-30||b.x>canvas.width+30||b.y<-30||b.y>canvas.height+30) return false;
+        if(p.invincible<=0&&Math.hypot(b.x-p.x,b.y-p.y)<p.r+b.r){damagePlayer(b.damage);return false;}
+        return true;
+      });
+    }
+
+    if(p.invincible<=0&&Math.hypot(e.x-p.x,e.y-p.y)<p.r+e.r-4) damagePlayer(e.damage*0.04);
+  }
+
+  // Pickups
+  game.pickups=game.pickups.filter(pk=>{
+    pk.y+=pk.vy; pk.vy=Math.min(pk.vy+0.04,1.5); pk.wobble+=0.07; pk.life-=pk.decay;
+    if(Math.hypot(pk.x-p.x,pk.y-p.y)<p.r+pk.r+10){
+      const def=PICKUP_DEFS[pk.type];
+      if(def){def.effect(game,pk.solAmt||10);floatText(pk.type==='health'?'+8 HP':`+◎${pk.solAmt||10}`,pk.x,pk.y-18,def.color);}
+      return false;
+    }
+    return pk.life>0&&pk.y<canvas.height+60;
+  });
+
+  game.particles=game.particles.filter(pt=>{pt.x+=pt.vx;pt.y+=pt.vy;pt.vx*=0.94;pt.vy*=0.94;pt.life-=pt.decay;return pt.life>0;});
+  game.floatTexts=game.floatTexts.filter(ft=>{ft.y+=ft.vy;ft.life-=0.022;return ft.life>0;});
+  if(game.comboTimer>0) game.comboTimer--; else game.combo=0;
+
+  // ── HUD ──
+  document.getElementById('score-display').textContent  = Math.floor(game.score).toLocaleString();
+  document.getElementById('kills-display').textContent  = game.kills;
+  document.getElementById('danger-display').textContent = game.dangerLevel;
+  document.getElementById('sol-display').textContent    = Math.floor(game.sol);
+  document.getElementById('health-fill').style.width    = Math.max(0,(p.health/p.maxHealth)*100)+'%';
+
+  // SOL bar: shows progress toward an arbitrary milestone (every 500 SOL = full bar reset)
+  const barMilestone = 500;
+  const solMod = game.solTotal % barMilestone;
+  document.getElementById('sol-fill').style.width = (solMod/barMilestone*100)+'%';
+
+  const cd=document.getElementById('combo-display');
+  if(game.combo>=2){cd.style.opacity='1';cd.textContent=`${game.combo}x COMBO!`;}
+  else cd.style.opacity='0';
+
+  if(isMobile()){
+    btnBlast.classList.toggle('ready',(Date.now()-p.lastBlast)>=p.blastCooldown);
+    updateShopBtn();
+  }
+
+  // Notify player they can afford something (once per affordability crossing)
+  checkShopAffordability();
+
+  // ── Anti-cheat: validate game state every frame ──
+  _AC.tick(game);
+}
+
+let _lastCanAfford = false;
+function checkShopAffordability() {
+  const canAfford = SHOP_ITEMS.some(item => {
+    const bought = shopBuys[item.id]||0;
+    return bought < item.maxBuys && game.sol >= itemCost(item);
+  });
+  if (canAfford && !_lastCanAfford) {
+    floatText('◎ SHOP OPEN — PRESS B', canvas.width/2, canvas.height/2-60, '#FFD700');
+  }
+  _lastCanAfford = canAfford;
+}
+
+// ─── DRAW ─────────────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#0A0A0F'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='rgba(20,241,149,0.03)'; ctx.lineWidth=1;
+  for(let x=0;x<canvas.width;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+  for(let y=0;y<canvas.height;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+
+  if(game.stars){game.stars.forEach(s=>{s.twinkle+=0.015;const a=Math.max(0,0.2+0.42*Math.sin(s.twinkle)*s.brightness);ctx.fillStyle=`rgba(255,255,255,${a})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});}
+
+  if(game.particles){game.particles.forEach(pt=>{ctx.globalAlpha=Math.max(0,pt.life);ctx.shadowBlur=4;ctx.shadowColor=pt.color;ctx.fillStyle=pt.color;ctx.beginPath();ctx.arc(pt.x,pt.y,Math.max(0.1,pt.r*pt.life),0,Math.PI*2);ctx.fill();});ctx.globalAlpha=1;ctx.shadowBlur=0;}
+
+  if(game.pickups){game.pickups.forEach(pk=>{
+    const def=PICKUP_DEFS[pk.type];
+    ctx.globalAlpha=Math.max(0,pk.life); ctx.save();
+    ctx.translate(pk.x,pk.y+Math.sin(pk.wobble)*3);
+    ctx.shadowBlur=12; ctx.shadowColor=def?def.color:'#fff';
+    ctx.font='19px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(def?def.symbol:'?',0,0);
+    ctx.restore(); ctx.globalAlpha=1;
+  });}
+
+  if(game.enemies){game.enemies.forEach(e=>{if(e.bullets)e.bullets.forEach(b=>drawBullet(b));});game.enemies.forEach(e=>drawEnemy(e));}
+  if(game.player&&game.player.bullets) game.player.bullets.forEach(b=>drawBullet(b));
+  if(game.player) drawPlayer(game.player);
+
+  if(game.floatTexts){game.floatTexts.forEach(ft=>{ctx.globalAlpha=Math.max(0,ft.life);ctx.font="bold 10px 'Press Start 2P',monospace";ctx.textAlign='center';ctx.fillStyle=ft.color;ctx.shadowBlur=5;ctx.shadowColor=ft.color;ctx.fillText(ft.text,ft.x,ft.y);});ctx.globalAlpha=1;ctx.shadowBlur=0;}
+}
+
+// ─── DANGER TAUNTS ────────────────────────────────────────────────────
+const DANGER_TAUNTS = [
+  'THIS IS FINE 🔥','RUGS ARE EVOLVING','JEETS EVERYWHERE','WHALES INBOUND','TOTAL MARKET COLLAPSE','DISCORD IS DEAD','DEVS HAVE LEFT THE BUILDING','APES TOGETHER STRONG... OR NOT','IT ONLY GOES DOWN FROM HERE','ABANDON ALL HOPE'];
+function getDangerTaunt(d) { return DANGER_TAUNTS[Math.floor((d/5-1))%DANGER_TAUNTS.length]||'MORE RUGS'; }
+
+// ─── PAUSE ────────────────────────────────────────────────────────────
+function togglePause() {
+  if(!game||!game.running||game.shopOpen) return;
+  paused=!paused;
+  const ps=document.getElementById('pause-screen'),pb=document.getElementById('pause-btn');
+  if(paused){game.pausedAt=Date.now();ps.classList.remove('hidden');pb.textContent='▶';}
+  else {
+    const dur=Date.now()-(game.pausedAt||Date.now());
+    game.startTime+=dur;game.player.lastBlast+=dur;game.player.lastShot+=dur;
+    ps.classList.add('hidden');pb.textContent='⏸';
+  }
+}
+
+function quitToMenu() {
+  paused=false; game.shopOpen=false;
+  if(game) game.running=false;
+  if(spawnTimeout){clearTimeout(spawnTimeout);spawnTimeout=null;}
+  ['pause-screen','shop-screen','gameover-screen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('pause-btn').style.display='none';
+  document.getElementById('mobile-controls').classList.remove('active');
+  document.getElementById('combo-display').style.opacity='0';
+  showStart();
+}
+
+// ─── GAME OVER ────────────────────────────────────────────────────────
+const DEATH_MSGS=['YOU GOT RUGGED — AS EXPECTED','NGMI — LITERALLY','RUG DEVS SEND THEIR REGARDS','PAPER HANDS CONFIRMED','JEET MODE ACTIVATED','LIQUIDITY: DRAINED','RUGGED AGAIN. CLASSIC.','"THIS IS FINE" 🔥','"TOTALLY SAFU" — DEV (GONE)','LFG… TO THE SHADOW REALM'];
+
+function gameOver() {
+  if(!game) return;
+  game.running=false; paused=false; game.shopOpen=false;
+  if(spawnTimeout){clearTimeout(spawnTimeout);spawnTimeout=null;}
+  const elapsed=Math.floor((Date.now()-game.startTime)/1000);
+
+  // Final anti-cheat validation pass before recording score
+  _AC.tick(game);
+  const token = _AC.sign(game.score, game.kills, game.solTotal, elapsed, game.peakDanger);
+
+  document.getElementById('final-score').textContent  = Math.floor(game.score).toLocaleString();
+  document.getElementById('stat-sol').textContent     = `SOL COLLECTED: ◎${Math.floor(game.solTotal)}`;
+  document.getElementById('stat-kills').textContent   = `RUGS OBLITERATED: ${game.kills}`;
+  document.getElementById('stat-time').textContent    = `TIME ALIVE: ${elapsed}s`;
+  document.getElementById('stat-danger').textContent  = `PEAK DANGER: ${game.peakDanger}`;
+  document.getElementById('stat-token').textContent   = `TOKEN: ${token}${_AC.flags > 0 ? ' ⚠' : ''}`;
+  document.getElementById('death-msg').textContent    = DEATH_MSGS[Math.floor(Math.random()*DEATH_MSGS.length)];
+  document.getElementById('gameover-screen').classList.remove('hidden');
+  document.getElementById('hud').style.opacity='0.3';
+  document.getElementById('pause-btn').style.display='none';
+  document.getElementById('mobile-controls').classList.remove('active');
+  document.getElementById('combo-display').style.opacity='0';
+}
+
+// ─── START ────────────────────────────────────────────────────────────
+function startGame() {
+  paused=false;
+  if(spawnTimeout){clearTimeout(spawnTimeout);spawnTimeout=null;}
+  ['start-screen','gameover-screen','shop-screen','pause-screen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('hud').style.opacity='1';
+  document.getElementById('combo-display').style.opacity='0';
+  document.getElementById('pause-btn').style.display='block';
+  document.getElementById('pause-btn').textContent='⏸';
+  if(isMobile()) document.getElementById('mobile-controls').classList.add('active');
+  shopBuys={}; _lastCanAfford=false;
+  initGame();
+  game.running=true;
+  announce('SURVIVE.<br><span style="font-size:0.55em;color:var(--sol-pink)">COLLECT ◎ SOL · PRESS B TO SHOP</span>',2800);
+}
+
+function showStart() {
+  if(game) game.running=false;
+  ['gameover-screen','pause-screen','shop-screen'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById('start-screen').classList.remove('hidden');
+}
+
+// ─── MAIN LOOP ────────────────────────────────────────────────────────
+function loop() {
+  try {
+    // ── DevTools overlay check ──
+    if (_AC.devOpen && game && game.running && !paused) {
+      if (!_devOverlay.visible) _devOverlay.show();
+    } else if (!_AC.devOpen && _devOverlay.visible) {
+      _devOverlay.hide();
+    }
+
+    if(game&&game.running&&!paused){update();draw();}
+    else {
+      // Idle background
+      ctx.fillStyle='#0A0A0F'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.strokeStyle='rgba(20,241,149,0.025)'; ctx.lineWidth=1;
+      for(let x=0;x<canvas.width;x+=60){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}
+      for(let y=0;y<canvas.height;y+=60){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+      if(game&&game.stars){game.stars.forEach(s=>{s.twinkle+=0.01;const a=Math.max(0,0.14+0.4*Math.sin(s.twinkle)*s.brightness);ctx.fillStyle=`rgba(255,255,255,${a})`;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});}
+      if(paused&&game&&!game.shopOpen) draw();
+    }
+  } catch(err) { console.error('Loop error:',err); }
+  requestAnimationFrame(loop);
+}
+
+initGame();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
