@@ -437,71 +437,17 @@ const _AC = (() => {
     return (h >>> 0).toString(16).padStart(8, '0');
   };
 
-  // ── DevTools detection ──
-  // Checks window size gap (docked devtools) every 4s
-  // If detected, a visible warning overlays the game
-  let _devOpen = false;
-  const _devCheck = () => {
-    const wGap = window.outerWidth  - window.innerWidth;
-    const hGap = window.outerHeight - window.innerHeight;
-    _devOpen = wGap > 200 || hGap > 200;
-  };
-  setInterval(_devCheck, 4000);
-
-  // ── Guard global vars against console overwrite ──
-  // Intercepts direct assignment from shallow call stacks (console)
-  // while allowing deep call stacks (game engine) to write freely
-  const _guard = (name) => {
-    let _val = undefined;
-    try {
-      Object.defineProperty(window, name, {
-        get() { return _val; },
-        set(v) {
-          // Stack depth heuristic: console assignments have 2-3 frames,
-          // internal code has 5+
-          const depth = (new Error().stack || '').split('\n').length;
-          if (depth >= 4) _val = v;
-          // shallow-stack writes (console cheats) are silently dropped
-        },
-        configurable: false,
-      });
-    } catch(e) { /* property may already be non-configurable */ }
-  };
-  ['game', 'shopBuys'].forEach(_guard);
+  // ── DevTools detection disabled — causes false positives on play.fun platform ──
 
   return _freeze({
     tick,
     sign,
-    get devOpen() { return _devOpen; },
-    get flags()   { return _flags;   },
+    get flags() { return _flags; },
   });
 })();
 
-// ── DevTools overlay (shown if cheating detected) ──
-const _devOverlay = (() => {
-  const el = document.createElement('div');
-  el.style.cssText = [
-    'position:fixed','inset:0','z-index:9999',
-    'background:rgba(10,10,15,0.97)',
-    'display:none','flex-direction:column',
-    'align-items:center','justify-content:center',
-    'font-family:"Press Start 2P",monospace',
-    'color:#FF2E2E','text-align:center','padding:20px',
-  ].join(';');
-  el.innerHTML = `
-    <div style="font-size:clamp(18px,4vw,36px);text-shadow:0 0 18px #FF2E2E;margin-bottom:16px">⚠ DEVTOOLS DETECTED</div>
-    <div style="font-size:clamp(8px,1.5vw,12px);color:rgba(255,46,46,0.7);line-height:2.2;max-width:460px">
-      CLOSE BROWSER DEVTOOLS TO CONTINUE<br>
-      SCORES RECORDED DURING THIS SESSION<br>
-      WILL BE FLAGGED AND DISCARDED
-    </div>`;
-  document.body.appendChild(el);
-  return {
-    show() { el.style.display = 'flex'; },
-    hide() { el.style.display = 'none'; },
-    get visible() { return el.style.display !== 'none'; },
-  };
-})();
+// ── DevTools detection disabled (causes false positives on some platforms) ──
+const _devOverlay = { show(){}, hide(){}, get visible(){ return false; } };
 
 const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
@@ -1180,13 +1126,6 @@ function showStart() {
 // ─── MAIN LOOP ────────────────────────────────────────────────────────
 function loop() {
   try {
-    // ── DevTools overlay check ──
-    if (_AC.devOpen && game && game.running && !paused) {
-      if (!_devOverlay.visible) _devOverlay.show();
-    } else if (!_AC.devOpen && _devOverlay.visible) {
-      _devOverlay.hide();
-    }
-
     if(game&&game.running&&!paused){update();draw();}
     else {
       // Idle background
