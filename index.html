@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="x-ogp-key" content="5d411fa7-74d7-473f-9e95-402978bf58f3" id="ogp-key-meta" />
-<script src="https://sdk.play.fun/v1/sdk.js"></script>
+<script src="https://sdk.play.fun"></script>
 <title>SOL SURVIVOR — Don't Get Rugged</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap');
@@ -976,8 +976,7 @@ function update() {
       game.comboTimer=200;
       const scoreGain = e.score * Math.max(1,1+(game.combo-1)*0.1);
       game.score += scoreGain;
-      // ── Play.fun: award points to player ──
-      try { if (window.PlayFun) window.PlayFun.addPoints(Math.floor(scoreGain)); } catch(e) {}
+      ogpAddPoints(Math.floor(scoreGain));
       // SOL drops directly from enemy
       const solGain = e.solDrop * (1 + (game.combo>=3 ? 0.5 : 0));
       game.sol     += solGain;
@@ -1152,8 +1151,8 @@ function gameOver() {
   document.getElementById('mobile-controls').classList.remove('active');
   document.getElementById('combo-display').style.opacity='0';
 
-  // ── Play.fun: end session and open rewards modal ──
-  try { if (window.PlayFun) window.PlayFun.endGame(); } catch(e) {}
+  // ── Play.fun: commit points and show rewards modal ──
+  ogpEndGame();
 }
 
 // ─── START ────────────────────────────────────────────────────────────
@@ -1201,6 +1200,54 @@ function loop() {
   } catch(err) { console.error('Loop error:',err); }
   requestAnimationFrame(loop);
 }
+
+// ─── PLAY.FUN SDK ─────────────────────────────────────────────────────
+let ogp = null;
+let _ogpReady = false;
+let _bestScore = 0;
+let _sessionPoints = 0;
+
+function initOGP() {
+  try {
+    ogp = new OpenGameSDK({
+      ui: { usePointsWidget: true, theme: 'dark' },
+      logLevel: 'warn',
+    });
+
+    ogp.on('OnReady', async () => {
+      _ogpReady = true;
+      try {
+        const result = await ogp.getPoints();
+        _bestScore = result?.points ? Number(result.points) : 0;
+      } catch(e) { _bestScore = 0; }
+    });
+
+    ogp.on('LoginSuccess', () => {
+      ogp.getPoints().then(r => { _bestScore = r?.points ? Number(r.points) : 0; }).catch(()=>{});
+    });
+
+    ogp.init({ gameId: 'cfe72cec-bf10-4c3f-b21d-82a2acbfabf9' });
+  } catch(e) {
+    console.warn('Play.fun SDK not available:', e);
+  }
+}
+
+function ogpAddPoints(amount) {
+  if (!ogp || !_ogpReady) return;
+  _sessionPoints += amount;
+  if (_sessionPoints > _bestScore) {
+    try { ogp.addPoints(_sessionPoints - _bestScore); } catch(e) {}
+  }
+}
+
+async function ogpEndGame() {
+  if (!ogp || !_ogpReady || _sessionPoints <= _bestScore) { _sessionPoints = 0; return; }
+  try { await ogp.endGame(); _bestScore = _sessionPoints; } catch(e) {}
+  _sessionPoints = 0;
+}
+
+// Wait for SDK script to load before initializing
+window.addEventListener('load', initOGP);
 
 initGame();
 requestAnimationFrame(loop);
